@@ -339,7 +339,7 @@ services:
       DB_SCHEMA: _analytics
       LOGFLARE_API_KEY: ${LOGFLARE_API_KEY}
       LOGFLARE_SINGLE_TENANT: "true"
-      LOGFLARE_SUPABASE_MODE: true
+      LOGFLARE_SUPABASE_MODE: "true"
       LOGFLARE_MIN_CLUSTER_SIZE: 1
       RELEASE_COOKIE: cookie
 
