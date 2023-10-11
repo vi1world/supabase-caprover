@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
 
-  studio:
+  liveverify-supabase-studio:
     container_name: supabase-studio
     image: supabase/studio:20230921-d657f29
     restart: unless-stopped
@@ -42,7 +42,7 @@ services:
       # NEXT_ANALYTICS_BACKEND_PROVIDER: bigquery
 
 
-  kong:
+  liveverify-supabase-kong:
     networks:
       - captain-overlay-network
     container_name: supabase-kong
@@ -71,7 +71,7 @@ services:
       # https://github.com/supabase/supabase/issues/12661
       - ./volumes/api/kong.yml:/home/kong/temp.yml:ro
 
-  auth:
+  liveverify-supabase-auth:
     networks:
       - captain-overlay-network
     container_name: supabase-auth
@@ -130,7 +130,7 @@ services:
       GOTRUE_SMS_AUTOCONFIRM: ${ENABLE_PHONE_AUTOCONFIRM}
       MFA_ENABLED: ${MFA_ENABLED}
 
-  rest:
+  liveverify-supabase-rest:
     networks:
       - captain-overlay-network
     container_name: supabase-rest
@@ -149,7 +149,7 @@ services:
       PGRST_APP_SETTINGS_JWT_EXP: ${JWT_EXPIRY}
     command: "postgrest"
 
-  realtime:
+  liveverify-supabase-realtime:
     networks:
       - captain-overlay-network
     container_name: realtime-dev.supabase-realtime
@@ -188,7 +188,7 @@ services:
     command: >
       sh -c "/app/bin/migrate && /app/bin/realtime eval 'Realtime.Release.seeds(Realtime.Repo)' && /app/bin/server"
 
-  storage:
+  liveverify-supabase-storage:
     networks:
       - captain-overlay-network
     container_name: supabase-storage
@@ -229,7 +229,7 @@ services:
     volumes:
       - ./volumes/storage:/var/lib/storage:z
 
-  imgproxy:
+  liveverify-supabase-imgproxy:
     networks:
       - captain-overlay-network
     container_name: supabase-imgproxy
@@ -265,7 +265,7 @@ services:
       PG_META_DB_USER: supabase_admin
       PG_META_DB_PASSWORD: ${POSTGRES_PASSWORD}
 
-  functions:
+  liveverify-supabase-functions:
     networks:
       - captain-overlay-network
     container_name: supabase-edge-functions
@@ -288,7 +288,7 @@ services:
       - --main-service
       - /home/deno/functions/main
 
-  analytics:
+  liveverify-supabase-analytics:
     networks:
       - captain-overlay-network
     container_name: supabase-analytics
@@ -341,7 +341,7 @@ services:
       `
 
   # Comment out everything below this point if you are using an external Postgres database
-  db:
+  liveverify-supabase-db:
     networks:
       - captain-overlay-network
     container_name: supabase-db
@@ -382,7 +382,7 @@ services:
       # Changes required for Analytics support
       - ./volumes/db/logs.sql:/docker-entrypoint-initdb.d/migrations/99-logs.sql:Z
 
-  vector:
+  liveverify-supabase-vector:
     networks:
       - captain-overlay-network
     container_name: supabase-vector
