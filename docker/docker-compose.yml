@@ -51,8 +51,8 @@ services:
     # https://unix.stackexchange.com/a/294837
     entrypoint: bash -c 'eval "echo \"$$(cat ~/temp.yml)\"" > ~/kong.yml && /docker-entrypoint.sh kong docker-start'
     ports:
-      - "8000:8000/tcp"
-      - "8443:8443/tcp"
+      - ${KONG_HTTP_PORT}:8000/tcp
+      - ${KONG_HTTPS_PORT}:8443/tcp
     depends_on:
       - liveverify-supabase-analytics
     environment:
@@ -362,7 +362,7 @@ services:
     restart: unless-stopped
     ports:
       # Pass down internal port because it's set dynamically by other services
-      - "5432:5432"
+      - 127.0.0.1:${POSTGRES_PORT}:${POSTGRES_PORT}
     environment:
       POSTGRES_HOST: /var/run/postgresql
       PGPORT: ${POSTGRES_PORT}
@@ -403,7 +403,7 @@ services:
       retries: 3
     volumes:
       - ./volumes/logs/vector.yml:/etc/vector/vector.yml:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ${DOCKER_SOCKET_LOCATION}:/var/run/docker.sock:ro
 
     command: [ "--config", "etc/vector/vector.yml" ]
 
