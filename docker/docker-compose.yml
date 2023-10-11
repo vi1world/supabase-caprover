@@ -52,7 +52,7 @@ services:
     entrypoint: bash -c 'eval "echo \"$$(cat ~/temp.yml)\"" > ~/kong.yml && /docker-entrypoint.sh kong docker-start'
     ports:
       - "8000:8000/tcp"
-      - "8000:8443/tcp"
+      - "8443:8443/tcp"
     depends_on:
       - liveverify-supabase-analytics
     environment:
@@ -403,7 +403,7 @@ services:
       retries: 3
     volumes:
       - ./volumes/logs/vector.yml:/etc/vector/vector.yml:ro
-      - ${DOCKER_SOCKET_LOCATION}:/var/run/docker.sock:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
 
     command: [ "--config", "etc/vector/vector.yml" ]
 
