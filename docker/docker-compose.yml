@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
 
-  liveverify-supabase-studio:
+  studio:
     container_name: supabase-studio
     image: supabase/studio:20230921-d657f29
     restart: unless-stopped
@@ -20,7 +20,7 @@ services:
       interval: 5s
       retries: 3
     depends_on:
-      - liveverify-supabase-analytics
+      - analytics
     environment:
       STUDIO_PG_META_URL: http://meta:8080
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -42,7 +42,7 @@ services:
       # NEXT_ANALYTICS_BACKEND_PROVIDER: bigquery
 
 
-  liveverify-supabase-kong:
+  kong:
     networks:
       - captain-overlay-network
     container_name: supabase-kong
@@ -54,7 +54,7 @@ services:
       - ${KONG_HTTP_PORT}:8000/tcp
       - ${KONG_HTTPS_PORT}:8443/tcp
     depends_on:
-      - liveverify-supabase-analytics
+      - analytics
     environment:
       KONG_DATABASE: "off"
       KONG_DECLARATIVE_CONFIG: /home/kong/kong.yml
@@ -69,16 +69,16 @@ services:
       DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD}
     volumes:
       # https://github.com/supabase/supabase/issues/12661
-      - ./volumes/api/kong.yml:/home/kong/temp.yml:ro
+      - /var/lib/docker/volumes/volumeForInstall/_data/api/kong.yml:/home/kong/temp.yml:ro
 
-  liveverify-supabase-auth:
+  auth:
     networks:
       - captain-overlay-network
     container_name: supabase-auth
     image: supabase/gotrue:v2.99.0
     depends_on:
-      - liveverify-supabase-db
-      - liveverify-supabase-analytics
+      - db
+      - analytics
     healthcheck:
       test:
         [
@@ -130,14 +130,14 @@ services:
       GOTRUE_SMS_AUTOCONFIRM: ${ENABLE_PHONE_AUTOCONFIRM}
       MFA_ENABLED: ${MFA_ENABLED}
 
-  liveverify-supabase-rest:
+  rest:
     networks:
       - captain-overlay-network
     container_name: supabase-rest
     image: postgrest/postgrest:v11.2.0
     depends_on:
-      - liveverify-supabase-db
-      - liveverify-supabase-analytics
+      - db
+      - analytics
     restart: unless-stopped
     environment:
       PGRST_DB_URI: postgres://authenticator:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
@@ -149,14 +149,14 @@ services:
       PGRST_APP_SETTINGS_JWT_EXP: ${JWT_EXPIRY}
     command: "postgrest"
 
-  liveverify-supabase-realtime:
+  realtime:
     networks:
       - captain-overlay-network
     container_name: realtime-dev.supabase-realtime
     image: supabase/realtime:v2.10.1
     depends_on:
-      - liveverify-supabase-db
-      - liveverify-supabase-analytics
+      - db
+      - analyticsy
     healthcheck:
       test:
         [
@@ -188,15 +188,15 @@ services:
     command: >
       sh -c "/app/bin/migrate && /app/bin/realtime eval 'Realtime.Release.seeds(Realtime.Repo)' && /app/bin/server"
 
-  liveverify-supabase-storage:
+  storage:
     networks:
       - captain-overlay-network
     container_name: supabase-storage
     image: supabase/storage-api:v0.40.4
     depends_on:
-      - liveverify-supabase-db
-      - liveverify-supabase-rest
-      - liveverify-supabase-imgproxy
+      - db
+      - rest
+      - imgproxy
     healthcheck:
       test:
         [
@@ -227,9 +227,9 @@ services:
       ENABLE_IMAGE_TRANSFORMATION: "true"
       IMGPROXY_URL: http://imgproxy:5001
     volumes:
-      - ./volumes/storage:/var/lib/storage:z
+      - /var/lib/docker/volumes/volumeForInstall/_data/storage:/var/lib/storage:z
 
-  liveverify-supabase-imgproxy:
+  imgproxy:
     networks:
       - captain-overlay-network
     container_name: supabase-imgproxy
@@ -245,7 +245,7 @@ services:
       IMGPROXY_USE_ETAG: "true"
       IMGPROXY_ENABLE_WEBP_DETECTION: ${IMGPROXY_ENABLE_WEBP_DETECTION}
     volumes:
-      - ./volumes/storage:/var/lib/storage:z
+      - /var/lib/docker/volumes/volumeForInstall/_data/storage:/var/lib/storage:z
 
   meta:
     networks:
@@ -253,8 +253,8 @@ services:
     container_name: supabase-meta
     image: supabase/postgres-meta:v0.68.0
     depends_on:
-      - liveverify-supabase-db
-      - liveverify-supabase-analytics
+      - db
+      - analytics
 
     restart: unless-stopped
     environment:
@@ -265,14 +265,14 @@ services:
       PG_META_DB_USER: supabase_admin
       PG_META_DB_PASSWORD: ${POSTGRES_PASSWORD}
 
-  liveverify-supabase-functions:
+  functions:
     networks:
       - captain-overlay-network
     container_name: supabase-edge-functions
     image: supabase/edge-runtime:v1.18.1
     restart: unless-stopped
     depends_on:
-      - liveverify-supabase-analytics
+      - analytics
     environment:
       JWT_SECRET: ${JWT_SECRET}
       SUPABASE_URL: http://kong:8000
@@ -282,13 +282,13 @@ services:
       # TODO: Allow configuring VERIFY_JWT per function. This PR might help: https://github.com/supabase/cli/pull/786
       VERIFY_JWT: "${FUNCTIONS_VERIFY_JWT}"
     volumes:
-      - ./volumes/functions:/home/deno/functions:Z
+      - /var/lib/docker/volumes/volumeForInstall/_data/functions:/home/deno/functions:Z
     command:
       - start
       - --main-service
       - /home/deno/functions/main
 
-  liveverify-supabase-analytics:
+  analytics:
     networks:
       - captain-overlay-network
     container_name: supabase-analytics
@@ -300,7 +300,7 @@ services:
       retries: 10
     restart: unless-stopped
     depends_on:
-      - liveverify-supabase-db
+      - db
         # Disable this if you are using an external Postgres database
 
     # Uncomment to use Big Query backend for analytics
@@ -332,7 +332,7 @@ services:
       # GOOGLE_PROJECT_ID: ${GOOGLE_PROJECT_ID}
       # GOOGLE_PROJECT_NUMBER: ${GOOGLE_PROJECT_NUMBER}
     ports:
-      - "4000:4000"
+      - 4000:4000
     entrypoint: |
       sh -c `cat <<'EOF' > run.sh && sh run.sh
       ./logflare eval Logflare.Release.migrate
@@ -341,7 +341,7 @@ services:
       `
 
   # Comment out everything below this point if you are using an external Postgres database
-  liveverify-supabase-db:
+  db:
     networks:
       - captain-overlay-network
     container_name: supabase-db
@@ -352,7 +352,7 @@ services:
       timeout: 5s
       retries: 10
     depends_on:
-      - liveverify-supabase-vector
+      - vector
     command:
       - postgres
       - -c
@@ -372,17 +372,13 @@ services:
       PGDATABASE: ${POSTGRES_DB}
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
-      - ./volumes/db/realtime.sql:/docker-entrypoint-initdb.d/migrations/99-realtime.sql:Z
-      # Must be superuser to create event trigger
-      - ./volumes/db/webhooks.sql:/docker-entrypoint-initdb.d/init-scripts/98-webhooks.sql:Z
-      # Must be superuser to alter reserved role
-      - ./volumes/db/roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:Z
-      # PGDATA directory is persisted between restarts
-      - ./volumes/db/data:/var/lib/postgresql/data:Z
-      # Changes required for Analytics support
-      - ./volumes/db/logs.sql:/docker-entrypoint-initdb.d/migrations/99-logs.sql:Z
+      - /var/lib/docker/volumes/volumeForInstall/_data/db/realtime.sql:/docker-entrypoint-initdb.d/migrations/99-realtime.sql:Z
+      - /var/lib/docker/volumes/volumeForInstall/_data/db/webhooks.sql:/docker-entrypoint-initdb.d/init-scripts/98-webhooks.sql:Z
+      - /var/lib/docker/volumes/volumeForInstall/_data/db/roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:Z
+      - /var/lib/docker/volumes/volumeForInstall/_data/db/data:/var/lib/postgresql/data:Z
+      - /var/lib/docker/volumes/volumeForInstall/_data/db/logs.sql:/docker-entrypoint-initdb.d/migrations/99-logs.sql:Z
 
-  liveverify-supabase-vector:
+  vector:
     networks:
       - captain-overlay-network
     container_name: supabase-vector
@@ -402,7 +398,7 @@ services:
       interval: 5s
       retries: 3
     volumes:
-      - ./volumes/logs/vector.yml:/etc/vector/vector.yml:ro
+      - /var/lib/docker/volumes/volumeForInstall/_data/logs/vector.yml:/etc/vector/vector.yml:ro
       - ${DOCKER_SOCKET_LOCATION}:/var/run/docker.sock:ro
 
     command: [ "--config", "etc/vector/vector.yml" ]
