@@ -51,8 +51,8 @@ services:
     # https://unix.stackexchange.com/a/294837
     entrypoint: bash -c 'eval "echo \"$$(cat ~/temp.yml)\"" > ~/kong.yml && /docker-entrypoint.sh kong docker-start'
     ports:
-      - ${KONG_HTTP_PORT}:8000/tcp
-      - ${KONG_HTTPS_PORT}:8443/tcp
+      - "${KONG_HTTP_PORT}:8000/tcp"
+      - "${KONG_HTTPS_PORT}:8443/tcp"
     depends_on:
       - analytics
     environment:
@@ -156,7 +156,7 @@ services:
     image: supabase/realtime:v2.10.1
     depends_on:
       - db
-      - analyticsy
+      - analytics
     healthcheck:
       test:
         [
@@ -332,7 +332,7 @@ services:
       # GOOGLE_PROJECT_ID: ${GOOGLE_PROJECT_ID}
       # GOOGLE_PROJECT_NUMBER: ${GOOGLE_PROJECT_NUMBER}
     ports:
-      - 4000:4000
+      - "4000:4000"
     entrypoint: |
       sh -c `cat <<'EOF' > run.sh && sh run.sh
       ./logflare eval Logflare.Release.migrate
@@ -362,7 +362,7 @@ services:
     restart: unless-stopped
     ports:
       # Pass down internal port because it's set dynamically by other services
-      - 127.0.0.1:${POSTGRES_PORT}:${POSTGRES_PORT}
+      - "127.0.0.1:${POSTGRES_PORT}:${POSTGRES_PORT}"
     environment:
       POSTGRES_HOST: /var/run/postgresql
       PGPORT: ${POSTGRES_PORT}
