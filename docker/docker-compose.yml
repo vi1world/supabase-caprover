@@ -1,17 +1,13 @@
-# Usage
-#   Start:          docker compose up
-#   With helpers:   docker compose -f docker-compose.yml -f ./dev/docker-compose.dev.yml up
-#   Stop:           docker compose down
-#   Destroy:        docker compose -f docker-compose.yml -f ./dev/docker-compose.dev.yml down -v --remove-orphans
-
 version: "3.8"
 
 services:
 
-  studio:
+  srv-captain--liverify-supabase-studio:
     container_name: supabase-studio
     image: supabase/studio:20230921-d657f29
     restart: unless-stopped
+    networks:
+      - captain-overlay-network
     healthcheck:
       test:
         [
@@ -24,8 +20,7 @@ services:
       interval: 5s
       retries: 3
     depends_on:
-      analytics:
-        condition: service_healthy
+      - analytics
     environment:
       STUDIO_PG_META_URL: http://meta:8080
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -45,18 +40,21 @@ services:
       NEXT_ANALYTICS_BACKEND_PROVIDER: postgres
       # Uncomment to use Big Query backend for analytics
       # NEXT_ANALYTICS_BACKEND_PROVIDER: bigquery
+
+
+  srv-captain--liverify-supabase-kong:
     networks:
       - captain-overlay-network
-
-  kong:
     container_name: supabase-kong
     image: kong:2.8.1
     restart: unless-stopped
     # https://unix.stackexchange.com/a/294837
     entrypoint: bash -c 'eval "echo \"$$(cat ~/temp.yml)\"" > ~/kong.yml && /docker-entrypoint.sh kong docker-start'
+    ports:
+      - ${KONG_HTTP_PORT}:8000/tcp
+      - ${KONG_HTTPS_PORT}:8443/tcp
     depends_on:
-      analytics:
-        condition: service_healthy
+      - analytics
     environment:
       KONG_DATABASE: "off"
       KONG_DECLARATIVE_CONFIG: /home/kong/kong.yml
@@ -72,18 +70,15 @@ services:
     volumes:
       # https://github.com/supabase/supabase/issues/12661
       - ./volumes/api/kong.yml:/home/kong/temp.yml:ro
+
+  srv-captain--liverify-supabase-auth:
     networks:
       - captain-overlay-network
-
-  auth:
     container_name: supabase-auth
     image: supabase/gotrue:v2.99.0
     depends_on:
-      db:
-        # Disable this if you are using an external Postgres database
-        condition: service_healthy
-      analytics:
-        condition: service_healthy
+      - db
+      - analytics
     healthcheck:
       test:
         [
@@ -134,20 +129,15 @@ services:
       GOTRUE_EXTERNAL_PHONE_ENABLED: ${ENABLE_PHONE_SIGNUP}
       GOTRUE_SMS_AUTOCONFIRM: ${ENABLE_PHONE_AUTOCONFIRM}
       MFA_ENABLED: ${MFA_ENABLED}
-    networks:
-      - captain-overlay-network
 
-  rest:
+  srv-captain--liverify-supabase-rest:
     networks:
       - captain-overlay-network
     container_name: supabase-rest
     image: postgrest/postgrest:v11.2.0
     depends_on:
-      db:
-        # Disable this if you are using an external Postgres database
-        condition: service_healthy
-      analytics:
-        condition: service_healthy
+      - db
+      - analytics
     restart: unless-stopped
     environment:
       PGRST_DB_URI: postgres://authenticator:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
@@ -159,17 +149,14 @@ services:
       PGRST_APP_SETTINGS_JWT_EXP: ${JWT_EXPIRY}
     command: "postgrest"
 
-  realtime:
+  srv-captain--liverify-supabase-realtime:
     networks:
       - captain-overlay-network
     container_name: realtime-dev.supabase-realtime
     image: supabase/realtime:v2.10.1
     depends_on:
-      db:
-        # Disable this if you are using an external Postgres database
-        condition: service_healthy
-      analytics:
-        condition: service_healthy
+      - db
+      - analyticsy
     healthcheck:
       test:
         [
@@ -183,7 +170,7 @@ services:
       retries: 3
     restart: unless-stopped
     environment:
-
+      PORT: 4000
       DB_HOST: ${POSTGRES_HOST}
       DB_PORT: ${POSTGRES_PORT}
       DB_USER: supabase_admin
@@ -201,19 +188,15 @@ services:
     command: >
       sh -c "/app/bin/migrate && /app/bin/realtime eval 'Realtime.Release.seeds(Realtime.Repo)' && /app/bin/server"
 
-  storage:
+  srv-captain--liverify-supabase-storage:
     networks:
       - captain-overlay-network
     container_name: supabase-storage
     image: supabase/storage-api:v0.40.4
     depends_on:
-      db:
-        # Disable this if you are using an external Postgres database
-        condition: service_healthy
-      rest:
-        condition: service_started
-      imgproxy:
-        condition: service_started
+      - db
+      - rest
+      - imgproxy
     healthcheck:
       test:
         [
@@ -246,7 +229,7 @@ services:
     volumes:
       - ./volumes/storage:/var/lib/storage:z
 
-  imgproxy:
+  srv-captain--liverify-supabase-imgproxy:
     networks:
       - captain-overlay-network
     container_name: supabase-imgproxy
@@ -264,17 +247,15 @@ services:
     volumes:
       - ./volumes/storage:/var/lib/storage:z
 
-  meta:
+  srv-captain--liverify-supabase-meta:
     networks:
       - captain-overlay-network
     container_name: supabase-meta
     image: supabase/postgres-meta:v0.68.0
     depends_on:
-      db:
-        # Disable this if you are using an external Postgres database
-        condition: service_healthy
-      analytics:
-        condition: service_healthy
+      - db
+      - analytics
+
     restart: unless-stopped
     environment:
       PG_META_PORT: 8080
@@ -284,15 +265,14 @@ services:
       PG_META_DB_USER: supabase_admin
       PG_META_DB_PASSWORD: ${POSTGRES_PASSWORD}
 
-  functions:
+  srv-captain--liverify-supabase-functions:
     networks:
       - captain-overlay-network
     container_name: supabase-edge-functions
     image: supabase/edge-runtime:v1.18.1
     restart: unless-stopped
     depends_on:
-      analytics:
-        condition: service_healthy
+      - analytics
     environment:
       JWT_SECRET: ${JWT_SECRET}
       SUPABASE_URL: http://kong:8000
@@ -308,7 +288,7 @@ services:
       - --main-service
       - /home/deno/functions/main
 
-  analytics:
+  srv-captain--liverify-supabase-analytics:
     networks:
       - captain-overlay-network
     container_name: supabase-analytics
@@ -320,9 +300,9 @@ services:
       retries: 10
     restart: unless-stopped
     depends_on:
-      db:
+      - db
         # Disable this if you are using an external Postgres database
-        condition: service_healthy
+
     # Uncomment to use Big Query backend for analytics
     # volumes:
     #   - type: bind
@@ -351,7 +331,8 @@ services:
       # Uncomment to use Big Query backend for analytics
       # GOOGLE_PROJECT_ID: ${GOOGLE_PROJECT_ID}
       # GOOGLE_PROJECT_NUMBER: ${GOOGLE_PROJECT_NUMBER}
-
+    ports:
+      - 4000:4000
     entrypoint: |
       sh -c `cat <<'EOF' > run.sh && sh run.sh
       ./logflare eval Logflare.Release.migrate
@@ -360,7 +341,7 @@ services:
       `
 
   # Comment out everything below this point if you are using an external Postgres database
-  db:
+  srv-captain--liverify-supabase-db:
     networks:
       - captain-overlay-network
     container_name: supabase-db
@@ -371,8 +352,7 @@ services:
       timeout: 5s
       retries: 10
     depends_on:
-      vector:
-        condition: service_healthy
+      - vector
     command:
       - postgres
       - -c
@@ -380,7 +360,9 @@ services:
       - -c
       - log_min_messages=fatal # prevents Realtime polling queries from appearing in logs
     restart: unless-stopped
-
+    ports:
+      # Pass down internal port because it's set dynamically by other services
+      - 127.0.0.1:${POSTGRES_PORT}:${POSTGRES_PORT}
     environment:
       POSTGRES_HOST: /var/run/postgresql
       PGPORT: ${POSTGRES_PORT}
@@ -400,7 +382,7 @@ services:
       # Changes required for Analytics support
       - ./volumes/db/logs.sql:/docker-entrypoint-initdb.d/migrations/99-logs.sql:Z
 
-  vector:
+  srv-captain--liverify-supabase-vector:
     networks:
       - captain-overlay-network
     container_name: supabase-vector
